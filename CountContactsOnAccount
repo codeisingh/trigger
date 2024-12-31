@@ -1,5 +1,5 @@
 trigger CountContactsOnAccount on Contact (after insert, after update, after delete, after undelete) {
-
+// Need to create Field on Account Objcet in order to update teh contact count 
     
     Map<Id, Integer> accountContactCountMap = new Map<Id, Integer>(); // Define a map to hold the Account Ids and their contact counts
 
