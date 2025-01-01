@@ -1,0 +1,32 @@
+trigger CopyMultiSelectPicklistToAccountFromOpportunity on Opportunity (after insert, after update) {
+    // Create a map to hold Account IDs and the picklist values
+    Map<Id, Set<String>> accountPicklistMap = new Map<Id, Set<String>>();
+
+    // Loop through the Opportunities to get their related Accounts and picklist values
+    for (Opportunity opp : Trigger.new) {
+        if (opp.AccountId != null && opp.Multiselect_Picklist_Field__c != null) {
+            // Initialize map entry if not already present
+            if (!accountPicklistMap.containsKey(opp.AccountId)) {
+                accountPicklistMap.put(opp.AccountId, new Set<String>());
+            }
+
+            // Add the picklist values from the Opportunity to the Account
+            List<String> picklistValues = opp.Multiselect_Picklist_Field__c.split(';');
+            accountPicklistMap.get(opp.AccountId).addAll(picklistValues);
+        }
+    }
+
+    // Update Accounts with the merged picklist values
+    List<Account> accountsToUpdate = new List<Account>();
+    for (Id accountId : accountPicklistMap.keySet()) {
+        Account acc = new Account(Id = accountId);
+        // Join the picklist values into a semicolon-separated string
+        acc.Multiselect_Picklist_Field__c = String.join(new List<String>(accountPicklistMap.get(accountId)), ';');
+        accountsToUpdate.add(acc);
+    }
+
+    // Update Accounts
+    if (!accountsToUpdate.isEmpty()) {
+        update accountsToUpdate;
+    }
+}
