@@ -1,0 +1,51 @@
+/* Problem Statement : If the picklist value is changed on product then it should be updated to the related opportunity */
+
+trigger UpdateOpportunityPicklist on Product2 (after update) {
+    // Collect all OpportunityLineItems associated with updated Products
+    Set<Id> productIds = new Set<Id>();
+    
+    for (Product2 prod : Trigger.new) {
+        if (prod.Your_Picklist_Field__c != Trigger.oldMap.get(prod.Id).Your_Picklist_Field__c) {
+            productIds.add(prod.Id);
+        }
+    }
+    
+    if (productIds.isEmpty()) {
+        return;
+    }
+    
+    // Fetch related OpportunityLineItems for the updated Products
+    List<OpportunityLineItem> oppLineItems = [SELECT Id, OpportunityId, Your_Picklist_Field__c 
+                                               FROM OpportunityLineItem 
+                                               WHERE Product2Id IN :productIds];
+    
+    // Collect Opportunity Ids
+    Set<Id> opportunityIds = new Set<Id>();
+    for (OpportunityLineItem oli : oppLineItems) {
+        opportunityIds.add(oli.OpportunityId);
+    }
+
+    // Fetch Opportunities and update the picklist field
+    List<Opportunity> opportunitiesToUpdate = [SELECT Id, Your_Picklist_Field__c 
+                                                FROM Opportunity 
+                                                WHERE Id IN :opportunityIds];
+
+    // Update Opportunity picklist field with the new value
+    for (Opportunity opp : opportunitiesToUpdate) {
+        String newPicklistValue = ''; // Logic to determine new picklist value for Opportunity
+        for (OpportunityLineItem oli : oppLineItems) {
+            if (oli.OpportunityId == opp.Id) {
+                newPicklistValue = oli.Your_Picklist_Field__c; // Update based on the OpportunityLineItem's value
+                break;
+            }
+        }
+        
+        // Set the new picklist value on Opportunity
+        opp.Your_Picklist_Field__c = newPicklistValue;
+    }
+    
+    // Update Opportunities
+    if (!opportunitiesToUpdate.isEmpty()) {
+        update opportunitiesToUpdate;
+    }
+}
