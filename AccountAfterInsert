@@ -1,0 +1,63 @@
+/* Problem Statement : An Apex Trigger will be responsible for detecting when an Account is inserted and sending the email with the attached PDF */
+
+trigger AccountAfterInsert on Account (after insert) {
+    for (Account acc : Trigger.new) {
+        // Create the PDF and send the email
+        sendAccountDetailsEmail(acc);
+    }
+}
+
+public void sendAccountDetailsEmail(Account acc) {
+    // Get the Account Owner
+    User accountOwner = [SELECT Id, Email FROM User WHERE Id = :acc.OwnerId LIMIT 1];
+    
+    // Generate PDF content
+    String pdfContent = generatePDFContent(acc);
+    
+    // Send the email with PDF attachment
+    sendEmailWithAttachment(accountOwner.Email, acc, pdfContent);
+}
+
+public String generatePDFContent(Account acc) {
+    // Prepare the PDF content (can be HTML or plain text)
+    String content = '<h1>Account Details</h1>';
+    content += '<p><strong>Account Name:</strong> ' + acc.Name + '</p>';
+    content += '<p><strong>Industry:</strong> ' + acc.Industry + '</p>';
+    content += '<p><strong>Phone:</strong> ' + acc.Phone + '</p>';
+    content += '<p><strong>Website:</strong> ' + acc.Website + '</p>';
+    
+    return content;
+}
+
+public void sendEmailWithAttachment(String recipientEmail, Account acc, String pdfContent) {
+    // Generate PDF from the content
+    PageReference pdfPage = new PageReference('/apex/GeneratePDF');
+    pdfPage.getParameters().put('content', pdfContent); // Passing the content as parameter
+    Blob pdfBlob = pdfPage.getContentAsPDF(); // Converts HTML content to PDF
+    
+    // Create email message
+    Messaging.SingleEmailMessage email = new Messaging.SingleEmailMessage();
+    email.setToAddresses(new String[] { recipientEmail });
+    email.setSubject('Account Details for ' + acc.Name);
+    email.setPlainTextBody('Please find the attached PDF with the Account details.');
+    
+    // Attach PDF to email
+    Messaging.EmailFileAttachment attachment = new Messaging.EmailFileAttachment();
+    attachment.setFileName(acc.Name + '_AccountDetails.pdf');
+    attachment.setBody(pdfBlob);
+    email.setFileAttachments(new Messaging.EmailFileAttachment[] { attachment });
+    
+    // Send the email
+    Messaging.sendEmail(new Messaging.SingleEmailMessage[] { email });
+}
+
+
+
+
+// 
+Visualforce Page (GeneratePDF.page)
+
+<apex:page contenttype="application/pdf">
+    <h1>Account Details</h1>
+    <p><strong>Account Name:</strong> {!content}</p>
+</apex:page>
